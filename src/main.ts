@@ -10,7 +10,8 @@ async function bootstrap() {
         credentials: true,
         origin: [
             'http://localhost:3000',
-            'https://gallery-test.gpcoders.dev'
+            'https://gallery-test.gpcoders.dev',
+            'https://gallery-test-gamma.vercel.app'
         ],
     });
     app.use(bodyParser.json({limit: '50mb'}));
