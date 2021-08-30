@@ -9,7 +9,8 @@ async function bootstrap() {
     app.enableCors({
         credentials: true,
         origin: [
-            'http://localhost:3000'
+            'http://localhost:3000',
+            'https://gallery-test.gpcoders.dev'
         ],
     });
     app.use(bodyParser.json({limit: '50mb'}));
