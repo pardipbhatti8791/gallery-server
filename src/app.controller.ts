@@ -1,4 +1,4 @@
-import {Body, Controller, Get, Param, Post, Res, UploadedFile, UseInterceptors} from '@nestjs/common';
+import {Body, Controller, Get, Param, Post, Query, Res, UploadedFile, UseInterceptors} from '@nestjs/common';
 import {AppService} from './app.service';
 import {extname} from "path";
 import {ApiConsumes} from '@nestjs/swagger';
@@ -7,7 +7,7 @@ import {FileInterceptor} from '@nestjs/platform-express';
 import {diskStorage} from 'multer'
 import {Response} from 'express'
 import {v4 as uuidv4} from 'uuid';
-import * as fs from 'fs'
+import {promises as fs} from 'fs'
 
 import * as db from './data/database.json'
 import {GalleryDto} from "./dto/gallery.dto";
@@ -18,11 +18,9 @@ export class AppController {
     }
 
     @Get("/gallery")
-    getSavedData(): any {
-        console.log(db.length)
-
-        const page = 2;
-        const limit = 2;
+    async getSavedData(@Query() query): Promise<any> {
+        const page: number = query.page !== undefined ? parseInt(query.page) : 1;
+        const limit = 9;
         const startIndex = (page - 1) * limit;
         const endIndex = page * limit;
 
@@ -40,34 +38,30 @@ export class AppController {
                 limit: limit,
             };
         }
-        result.results = db.slice(startIndex, endIndex);
-
-
-        return result
+        result.results = await db.slice(startIndex, endIndex);
+        return new Promise((resolve) => {
+            return resolve(result)
+        })
     }
 
     @Post('/save-data')
-    saveData(@Body() formData: GalleryDto): any {
-        return fs.readFile('./src/data/database.json', 'utf8', function readFileCallback(err, data) {
-            if (err) {
-                console.log(err);
-            } else {
-                const jsonData = JSON.parse(data); //now it an object
-                jsonData.push({
-                    id: uuidv4(),
-                    title: formData.title,
-                    description: formData.description,
-                    imageUrl: formData.imageUrl
-                }); //add some data
-                const json = JSON.stringify(jsonData); //convert it back to json
-                return fs.writeFile('./src/data/database.json', json, 'utf8', function () {
-                    return {
-                        success: true
-                    }
-                }); // write it back
-            }
-        });
+    async saveData(@Body() formData: GalleryDto): Promise<any> {
+        const data = await fs.readFile('./src/data/database.json', 'utf8')
+        const jsonData = JSON.parse(data); //now it an object
+        jsonData.push({
+            id: uuidv4(),
+            title: formData.title,
+            description: formData.description,
+            imageUrl: formData.imageUrl
+        }); //add some data
+        const json = JSON.stringify(jsonData); //convert it back to json
+        await fs.writeFile('./src/data/database.json', json, 'utf8')
 
+        return new Promise((resolve) => {
+            return resolve({
+                success: true
+            })
+        })
     }
 
 
@@ -91,12 +85,26 @@ export class AppController {
     )
     uploadFile(@UploadedFile() file) {
         return {
-            url: `http://localhost:3001/api/v1/${file.path}`
+            url: `${file.path}`
         }
     }
 
     @Get('uploads/:path')
     async getImage(@Param('path') path, @Res() res: Response) {
         res.sendFile(path, {root: 'uploads'})
+    }
+
+    @Post('/delete')
+    async deleteFiles(): Promise<any> {
+        await fs.writeFile('./src/data/database.json', JSON.stringify([]), 'utf8')
+        const dir = await fs.readdir('uploads')
+        dir.forEach(file => {
+            fs.unlink(`uploads/${file}`)
+        })
+        return new Promise(resolve => {
+            return resolve({
+                success: true
+            })
+        })
     }
 }
